@@ -55,16 +55,12 @@ static char VERSION[] = "XX.YY.ZZ";
 
 #define ARRAY_SIZE(stuff)       (sizeof(stuff) / sizeof(stuff[0]))
 
-// defaults for cmdline options
 #define TARGET_FREQ             WS2811_TARGET_FREQ
 #define GPIO_PIN                18
 #define DMA                     10
-//#define STRIP_TYPE            WS2811_STRIP_RGB		// WS2812/SK6812RGB integrated chip+leds
-#define STRIP_TYPE              WS2811_STRIP_GBR		// WS2812/SK6812RGB integrated chip+leds
-//#define STRIP_TYPE            SK6812_STRIP_RGBW		// SK6812RGBW (NOT SK6812RGB)
-
-#define WIDTH                   8
-#define HEIGHT                  8
+#define STRIP_TYPE              WS2811_STRIP_GBR
+#define WIDTH                   16
+#define HEIGHT                  16
 #define LED_COUNT               (WIDTH * HEIGHT)
 
 int width = WIDTH;
@@ -72,6 +68,8 @@ int height = HEIGHT;
 int led_count = LED_COUNT;
 
 int clear_on_exit = 0;
+
+int color_selected = 0;
 
 ws2811_t ledstring =
 {
@@ -122,8 +120,6 @@ void matrix_raise(void)
     {
         for (x = 0; x < width; x++)
         {
-            // This is for the 8x8 Pimoroni Unicorn-HAT where the LEDS in subsequent
-            // rows are arranged in opposite directions
             matrix[y * width + x] = matrix[(y + 1)*width + width - x - 1];
         }
     }
@@ -145,27 +141,13 @@ void matrix_clear(void)
 int dotspos[] = { 0, 1, 2, 3, 4, 5, 6, 7 };
 ws2811_led_t dotcolors[] =
 {
-    0x00200000,  // red
-    0x00201000,  // orange
-    0x00202000,  // yellow
-    0x00002000,  // green
-    0x00002020,  // lightblue
-    0x00000020,  // blue
-    0x00100010,  // purple
-    0x00200010,  // pink
-};
-
-ws2811_led_t dotcolors_rgbw[] =
-{
-    0x00200000,  // red
-    0x10200000,  // red + W
-    0x00002000,  // green
-    0x10002000,  // green + W
-    0x00000020,  // blue
-    0x10000020,  // blue + W
-    0x00101010,  // white
-    0x10101010,  // white + W
-
+    0x00000000,  // 0
+    0x00FFFF00,  // 1 Cyan
+    0x0000FF00,  // 2 Vert
+    0x0000FFFF,  // 3 Jaune
+	0x000033FF,  // 4 Orange (bruh)
+    0x000000FF,  // 5 Rouge
+    0x00AA00FF,  // 6 Violet
 };
 
 void matrix_bottom(void)
@@ -179,12 +161,8 @@ void matrix_bottom(void)
         {
             dotspos[i] = 0;
         }
-
-        if (ledstring.channel[0].strip_type == SK6812_STRIP_RGBW) {
-            matrix[dotspos[i] + (height - 1) * width] = dotcolors_rgbw[i];
-        } else {
-            matrix[dotspos[i] + (height - 1) * width] = dotcolors[i];
-        }
+        
+		matrix[dotspos[i] + (height - 1) * width] = dotcolors[color_selected];
     }
 }
 
@@ -214,6 +192,7 @@ void parseargs(int argc, char **argv, ws2811_t *ws2811)
 	static struct option longopts[] =
 	{
 		{"help", no_argument, 0, 'h'},
+		{"color", required_argument, 0, 'l'},
 		{"dma", required_argument, 0, 'd'},
 		{"gpio", required_argument, 0, 'g'},
 		{"invert", no_argument, 0, 'i'},
@@ -244,6 +223,7 @@ void parseargs(int argc, char **argv, ws2811_t *ws2811)
 			fprintf(stderr, "%s version %s\n", argv[0], VERSION);
 			fprintf(stderr, "Usage: %s \n"
 				"-h (--help)    - this information\n"
+				"-l (--color)   - sets color\n"
 				"-s (--strip)   - strip type - rgb, grb, gbr, rgbw\n"
 				"-x (--width)   - matrix width (default 8)\n"
 				"-y (--height)  - matrix height (default 8)\n"
@@ -255,6 +235,13 @@ void parseargs(int argc, char **argv, ws2811_t *ws2811)
 				"-v (--version) - version information\n"
 				, argv[0]);
 			exit(-1);
+
+		case 'l':
+			if (optarg) {
+				int gpio = atoi(optarg);
+				color_selected = gpio;
+			}
+			break;
 
 		case 'D':
 			break;
